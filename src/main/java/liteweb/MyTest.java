@@ -25,8 +25,8 @@ public class MyTest {
 
         while (true) {
             // 轮询Selector上的事件
-            selector.select();
-            System.out.println("select");
+            int select = selector.select();
+            System.out.println("select"+select);
 
             Set<SelectionKey> selectionKeys = selector.selectedKeys();
             Iterator<SelectionKey> selectionKeyIterator = selectionKeys.iterator();
@@ -56,6 +56,7 @@ public class MyTest {
                         }
                     }
                     if (readBytes == -1) {
+                        System.out.println("--------------------");
                         channel.close();
                         selectionKey.cancel();
                         return;
@@ -68,17 +69,8 @@ public class MyTest {
                     String responseText = String.format(RESPONSE_TEMPLATE, RESPONSE_BODY.length(), RESPONSE_BODY);
                     ByteBuffer response = ByteBuffer.wrap(responseText.getBytes(CHARSET));
                     channel.write(response);
-                    selectionKey.interestOps(SelectionKey.OP_WRITE);
-                }
-                if (selectionKey.isWritable()) {
-                    System.out.println("isWritable");
-                    SocketChannel channel = (SocketChannel) selectionKey.channel();
-                    ByteBuffer buffer = ByteBuffer.allocate(1024);
-                    buffer.flip();
-                    channel.write(buffer);
-                    System.out.println(new String(buffer.array(), CHARSET));
-                    selectionKey.interestOps(SelectionKey.OP_READ);
                     channel.close();
+                    selectionKey.cancel();
                 }
                 selectionKeyIterator.remove();
             }
