@@ -1,9 +1,13 @@
 package liteweb.http;
 
+import liteweb.NIOServer;
+import liteweb.ServerConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -104,16 +108,38 @@ public class Response {
 
     public void write(OutputStream outputStream) throws IOException {
         try (DataOutputStream output = new DataOutputStream(outputStream)) {
-			for (String header : headers) {
-				output.writeBytes(header + "\r\n");
-			}
-			output.writeBytes("\r\n");
-			if (body != null) {
-				output.write(body);
-			}
-			output.writeBytes("\r\n");
-			output.flush();
-		}
+            for (String header : headers) {
+                output.writeBytes(header + "\r\n");
+            }
+            output.writeBytes("\r\n");
+            if (body != null) {
+                output.write(body);
+            }
+            output.writeBytes("\r\n");
+            output.flush();
+        }
+    }
+
+    public void write(SocketChannel socketChannel) throws IOException {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
+
+        try(SocketChannel closeableSocketChannel = socketChannel) {
+            for (String header : headers) {
+                byteBuffer.put(ServerConfig.CHARSET.encode(header + "\r\n"));
+            }
+            byteBuffer.put(ServerConfig.CHARSET.encode("\r\n"));
+            if (body != null) {
+                byteBuffer.put(body);
+            }
+            byteBuffer.put(ServerConfig.CHARSET.encode("\r\n"));
+            byteBuffer.flip();
+            while (byteBuffer.hasRemaining()) {
+                closeableSocketChannel.write(byteBuffer);
+            }
+            System.out.println("write response");
+        } finally {
+            byteBuffer.clear();
+        }
     }
 
     private void setContentType(String uri) {
