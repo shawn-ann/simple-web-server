@@ -69,7 +69,8 @@ public class Server {
         return DEFAULT_PORT;
     }
 
-    static void handleSelectionKeyIfAcceptable(Selector selector, SelectionKey selectionKey) throws IOException {
+
+    private static void handleSelectionKeyIfAcceptable(Selector selector, SelectionKey selectionKey) throws IOException {
         if (selectionKey.isAcceptable()) {
             ServerSocketChannel serverSocketChannel = (ServerSocketChannel) selectionKey.channel();
             SocketChannel socketChannel = serverSocketChannel.accept();
@@ -78,10 +79,10 @@ public class Server {
         }
     }
 
-    static void handleSelectionKeyIfReadable(SelectionKey selectionKey) throws IOException {
+    private static void handleSelectionKeyIfReadable(SelectionKey selectionKey) throws IOException {
         if (selectionKey.isReadable()) {
             SocketChannel socketChannel = (SocketChannel) selectionKey.channel();
-            Request request = getRequest(selectionKey, socketChannel);
+            Request request = getRequest(socketChannel);
             if (request == null) {
                 System.out.println("User cancel the request");
                 socketChannel.close();
@@ -95,7 +96,7 @@ public class Server {
         }
     }
 
-    private static Request getRequest(SelectionKey selectionKey, SocketChannel socketChannel) throws IOException {
+    private static Request getRequest(SocketChannel socketChannel) throws IOException {
         ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
         int readBytes = socketChannel.read(byteBuffer);
 

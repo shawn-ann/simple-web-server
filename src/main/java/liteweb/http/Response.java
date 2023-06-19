@@ -22,7 +22,7 @@ public class Response {
 
     private final List<String> headers = new ArrayList<>();
 
-    private byte[] body;
+    private ByteBuffer body;
 
     public List<String> getHeaders() {
         return new ArrayList<>(headers);
@@ -38,18 +38,18 @@ public class Response {
                 try {
                     // TODO fix dir bug http://localhost:8080/src/test
                     String uri = req.getUri();
-//                    FileChannel fileChannel = FileChannel.open(Paths.get("." + uri), StandardOpenOption.READ);
-//                    MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
                     File file = new File("." + uri);
                     if (file.isDirectory()) {
                         generateResponseForFolder(uri, file);
                     } else if (file.exists()) {
                         fillHeaders(Status._200);
                         setContentType(uri);
-                        fillResponse(getBytes(file));
+                        FileChannel fileChannel = FileChannel.open(Paths.get("." + uri), StandardOpenOption.READ);
+                        fillResponse(fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size()));
                     } else {
                         log.info("File not found: %s", req.getUri());
                         fillHeaders(Status._404);
+
                         fillResponse(Status._404.toString());
                     }
                 } catch (IOException e) {
@@ -102,13 +102,11 @@ public class Response {
         headers.add("Connection: close");
         headers.add("Server: simple-web-server");
     }
-
     private void fillResponse(String response) {
-        body = response.getBytes();
+        body = ByteBuffer.wrap(response.getBytes());
     }
-
-    private void fillResponse(byte[] response) {
-        body = response;
+    private void fillResponse(ByteBuffer byteBuffer) {
+        body = byteBuffer;
     }
 
     public void write(SocketChannel socketChannel) throws IOException {
@@ -123,14 +121,7 @@ public class Response {
             closeableSocketChannel.write(byteBuffer);
             byteBuffer.clear();
             if (body != null) {
-                int index = 0;
-                while (index < body.length) {
-                    byteBuffer.put(body, index, body.length - index > 1024 ? 1024 : body.length - index);
-                    byteBuffer.flip();
-                    closeableSocketChannel.write(byteBuffer);
-                    index += byteBuffer.position();
-                    byteBuffer.clear();
-                }
+                closeableSocketChannel.write(body);
             }
             byteBuffer.put(ServerConfig.CHARSET.encode("\r\n"));
             byteBuffer.flip();
