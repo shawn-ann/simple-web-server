@@ -1,13 +1,16 @@
 package liteweb.http;
 
-import liteweb.NIOServer;
 import liteweb.ServerConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.*;
 import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.SocketChannel;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +38,8 @@ public class Response {
                 try {
                     // TODO fix dir bug http://localhost:8080/src/test
                     String uri = req.getUri();
+//                    FileChannel fileChannel = FileChannel.open(Paths.get("." + uri), StandardOpenOption.READ);
+//                    MappedByteBuffer mappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
                     File file = new File("." + uri);
                     if (file.isDirectory()) {
                         generateResponseForFolder(uri, file);
@@ -106,37 +111,33 @@ public class Response {
         body = response;
     }
 
-    public void write(OutputStream outputStream) throws IOException {
-        try (DataOutputStream output = new DataOutputStream(outputStream)) {
-            for (String header : headers) {
-                output.writeBytes(header + "\r\n");
-            }
-            output.writeBytes("\r\n");
-            if (body != null) {
-                output.write(body);
-            }
-            output.writeBytes("\r\n");
-            output.flush();
-        }
-    }
-
     public void write(SocketChannel socketChannel) throws IOException {
         ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
 
-        try(SocketChannel closeableSocketChannel = socketChannel) {
+        try (SocketChannel closeableSocketChannel = socketChannel) {
             for (String header : headers) {
                 byteBuffer.put(ServerConfig.CHARSET.encode(header + "\r\n"));
             }
             byteBuffer.put(ServerConfig.CHARSET.encode("\r\n"));
+            byteBuffer.flip();
+            closeableSocketChannel.write(byteBuffer);
+            byteBuffer.clear();
             if (body != null) {
-                byteBuffer.put(body);
+                int index = 0;
+                while (index < body.length) {
+                    byteBuffer.put(body, index, body.length - index > 1024 ? 1024 : body.length - index);
+                    byteBuffer.flip();
+                    closeableSocketChannel.write(byteBuffer);
+                    index += byteBuffer.position();
+                    byteBuffer.clear();
+                }
             }
             byteBuffer.put(ServerConfig.CHARSET.encode("\r\n"));
             byteBuffer.flip();
-            while (byteBuffer.hasRemaining()) {
-                closeableSocketChannel.write(byteBuffer);
-            }
+            closeableSocketChannel.write(byteBuffer);
             System.out.println("write response");
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
             byteBuffer.clear();
         }
