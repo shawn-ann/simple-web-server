@@ -25,7 +25,6 @@ public class Server {
     private static final int DEFAULT_PORT = 8080;
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        // 238619
         new Server().startListen(getValidPortParam(args));
     }
 
