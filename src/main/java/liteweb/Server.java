@@ -25,6 +25,7 @@ public class Server {
     private static final int DEFAULT_PORT = 8080;
 
     public static void main(String[] args) throws IOException, InterruptedException {
+
         new Server().startListen(getValidPortParam(args));
     }
 
@@ -38,7 +39,7 @@ public class Server {
             log.info("Web server listening on port %d (press CTRL-C to quit)", port);
             while (true) {
                 // 轮询Selector上的事件
-                int select = selector.select();
+                selector.select();
                 Set<SelectionKey> selectionKeys = selector.selectedKeys();
                 Iterator<SelectionKey> selectionKeyIterator = selectionKeys.iterator();
                 while (selectionKeyIterator.hasNext()) {
