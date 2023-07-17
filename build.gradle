@@ -27,6 +27,15 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.3'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.6.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+    // https://mvnrepository.com/artifact/org.mockito/mockito-core
+    testImplementation group: 'org.mockito', name: 'mockito-core', version: '5.4.0'
+    testImplementation group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
+    implementation 'com.amazonaws:aws-java-sdk:1.12.506'
+//    implementation "software.amazon.awssdk:sqs:2.17.43"
+    implementation "javax.jms:javax.jms-api:2.0.1"
+    implementation 'com.amazonaws:amazon-sqs-java-messaging-lib:2.1.1'
+
+
 }
 
 jar {
