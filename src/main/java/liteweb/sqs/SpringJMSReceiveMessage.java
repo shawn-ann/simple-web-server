@@ -1,32 +1,24 @@
 package liteweb.sqs;
 
 import com.amazon.sqs.javamessaging.ProviderConfiguration;
-import com.amazon.sqs.javamessaging.SQSConnection;
 import com.amazon.sqs.javamessaging.SQSConnectionFactory;
-import com.amazon.sqs.javamessaging.SQSMessagingClientConstants;
-import com.amazon.sqs.javamessaging.acknowledge.AcknowledgeMode;
-import com.amazon.sqs.javamessaging.message.SQSMessage;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.sqs.AmazonSQSAsync;
 import com.amazonaws.services.sqs.AmazonSQSAsyncClientBuilder;
-import com.amazonaws.services.sqs.model.MessageAttributeValue;
-import com.amazonaws.services.sqs.model.SendMessageRequest;
 import org.springframework.jms.listener.DefaultMessageListenerContainer;
 
-import javax.jms.*;
-import java.util.HashMap;
+import javax.jms.Message;
+import javax.jms.MessageListener;
+import javax.jms.Session;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SpringJMSReceiveMessage {
-    private final String queueName = "example.fifo";
-    private final String serviceEndpoint = "http://localhost:4566";
-    private final String queueURL = serviceEndpoint + "/000000000000/" + queueName;
     private final AmazonSQSAsync sqsClient = AmazonSQSAsyncClientBuilder.standard()
             .withCredentials(new DefaultAWSCredentialsProviderChain())
-            .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(serviceEndpoint, "us-east-1"))
+            .withEndpointConfiguration(new AwsClientBuilder.EndpointConfiguration(SQSConfig.serviceEndpoint, "us-east-1"))
             .build();
     ;
     private final SQSConnectionFactory connectionFactory = new SQSConnectionFactory(new ProviderConfiguration(), sqsClient);
@@ -46,7 +38,7 @@ public class SpringJMSReceiveMessage {
         MessageListener messageListener = new ReceiverCallback();
         DefaultMessageListenerContainer listenerContainer = new DefaultMessageListenerContainer();
         listenerContainer.setConnectionFactory(connectionFactory);
-        listenerContainer.setDestinationName(queueName);
+        listenerContainer.setDestinationName(SQSConfig.queueName);
 
         listenerContainer.setSessionTransacted(false);
         listenerContainer.setSessionAcknowledgeMode(Session.CLIENT_ACKNOWLEDGE);
@@ -69,18 +61,22 @@ public class SpringJMSReceiveMessage {
         public void onMessage(Message message) {
             try {
                 String groupId = message.getStringProperty("JMSXGroupID");
-                String messageId = message.getJMSMessageID();
-                List<String> messageIds = messageGroups.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>());
-                if (messageIds.isEmpty() || messageIds.contains(messageId)) {
-                    messageIds.add(messageId);
-                    System.out.println(String.format("%s %s receive,Group ID: %s",
+//                String messageId = message.getJMSMessageID();
+//                List<String> messageIds = messageGroups.computeIfAbsent(groupId, k -> new CopyOnWriteArrayList<>());
+//                if (messageIds.isEmpty() || messageIds.contains(messageId)) {
+//                    messageIds.add(messageId);
+                    System.out.println(String.format("%s %s receive,Group ID: %s, start..",
                             Thread.currentThread().getName(),
                             System.currentTimeMillis(), groupId));
                     Thread.sleep(10000);
                     message.acknowledge();
-                } else {
-                    System.out.println("Skipping message: " + messageId);
-                }
+
+                System.out.println(String.format("%s %s receive,Group ID: %s ,done",
+                        Thread.currentThread().getName(),
+                        System.currentTimeMillis(), groupId));
+//                } else {
+//                    System.out.println("Skipping message: " + messageId);
+//                }
             } catch (Exception e) {
                 e.printStackTrace();
             }
