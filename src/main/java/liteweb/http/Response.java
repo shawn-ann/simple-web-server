@@ -1,9 +1,16 @@
 package liteweb.http;
 
+import liteweb.ServerConfig;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.SocketChannel;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,7 +22,7 @@ public class Response {
 
     private final List<String> headers = new ArrayList<>();
 
-    private byte[] body;
+    private ByteBuffer body;
 
     public List<String> getHeaders() {
         return new ArrayList<>(headers);
@@ -37,10 +44,12 @@ public class Response {
                     } else if (file.exists()) {
                         fillHeaders(Status._200);
                         setContentType(uri);
-                        fillResponse(getBytes(file));
+                        FileChannel fileChannel = FileChannel.open(Paths.get("." + uri), StandardOpenOption.READ);
+                        fillResponse(fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size()));
                     } else {
                         log.info("File not found: %s", req.getUri());
                         fillHeaders(Status._404);
+
                         fillResponse(Status._404.toString());
                     }
                 } catch (IOException e) {
@@ -93,27 +102,36 @@ public class Response {
         headers.add("Connection: close");
         headers.add("Server: simple-web-server");
     }
-
     private void fillResponse(String response) {
-        body = response.getBytes();
+        body = ByteBuffer.wrap(response.getBytes());
+    }
+    private void fillResponse(ByteBuffer byteBuffer) {
+        body = byteBuffer;
     }
 
-    private void fillResponse(byte[] response) {
-        body = response;
-    }
+    public void write(SocketChannel socketChannel) throws IOException {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
 
-    public void write(OutputStream outputStream) throws IOException {
-        try (DataOutputStream output = new DataOutputStream(outputStream)) {
-			for (String header : headers) {
-				output.writeBytes(header + "\r\n");
-			}
-			output.writeBytes("\r\n");
-			if (body != null) {
-				output.write(body);
-			}
-			output.writeBytes("\r\n");
-			output.flush();
-		}
+        try (SocketChannel closeableSocketChannel = socketChannel) {
+            for (String header : headers) {
+                byteBuffer.put(ServerConfig.CHARSET.encode(header + "\r\n"));
+            }
+            byteBuffer.put(ServerConfig.CHARSET.encode("\r\n"));
+            byteBuffer.flip();
+            closeableSocketChannel.write(byteBuffer);
+            byteBuffer.clear();
+            if (body != null) {
+                closeableSocketChannel.write(body);
+            }
+            byteBuffer.put(ServerConfig.CHARSET.encode("\r\n"));
+            byteBuffer.flip();
+            closeableSocketChannel.write(byteBuffer);
+            System.out.println("write response");
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            byteBuffer.clear();
+        }
     }
 
     private void setContentType(String uri) {
